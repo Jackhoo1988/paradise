@@ -324,7 +324,27 @@
             </div>
         </div>
     </footer>
+    <!-- 提示框样式 -->
+    <style>
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
 
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
     <script>
         // 显示提示框函数
         function showToast(message) {
@@ -361,7 +381,7 @@
 
                     // 显示提示信息
                     showToast(`${appName}正在研发中，敬请期待！`);
-                    
+
 					// 模拟跳转到对应的HTML页面
 					console.log(`跳转到${appName}页面: ${this.href}`);
 				}
