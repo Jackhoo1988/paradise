@@ -326,6 +326,29 @@
     </footer>
 
     <script>
+        // 显示提示框函数
+        function showToast(message) {
+            // 检查是否已存在toast元素
+            let toast = document.querySelector('.toast');
+
+            // 如果不存在，则创建一个
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.className = 'toast';
+                document.body.appendChild(toast);
+            }
+
+            // 设置提示信息
+            toast.textContent = message;
+
+            // 显示提示框
+            toast.classList.add('show');
+
+            // 3秒后隐藏提示框
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
         // 实现卡片点击跳转功能
         document.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', function(e) {
@@ -335,7 +358,10 @@
 					
 					// 获取应用名称
 					const appName = this.querySelector('h3')?.textContent || '应用';
-					
+
+                    // 显示提示信息
+                    showToast(`${appName}正在研发中，敬请期待！`);
+                    
 					// 模拟跳转到对应的HTML页面
 					console.log(`跳转到${appName}页面: ${this.href}`);
 				}
