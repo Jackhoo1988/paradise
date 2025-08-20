@@ -72,6 +72,11 @@
 </head>
 <body class="bg-gradient-to-br from-dark to-purple-900 font-game text-light min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
     <div class="max-w-3xl w-full relative">
+        <!-- 声音权限提示 -->
+        <div id="soundPermission" class="fixed top-4 right-4 bg-dark/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-yellow-500/50 shadow-lg text-center z-50 hidden">
+            <p class="text-yellow-300 text-sm"><i class="fa fa-volume-up mr-1"></i> 请允许声音权限以体验语音祝福</p>
+        </div>
+        
         <!-- 开始游戏界面 -->
         <div id="startScreen" class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-dark/95 backdrop-blur-md rounded-xl p-6 text-center">
             <div class="mb-6 float">
@@ -95,7 +100,7 @@
                 爱的贪吃蛇
             </h1>
             <div id="score-display" class="bg-dark/70 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/10 shadow-lg">
-                <span class="text-sm font-medium text-white/70">甜蜜值:</span>
+                <span class="text-sm font-medium text-white/70">幸福值:</span>
                 <span id="score" class="text-xl font-bold ml-2">0</span>
             </div>
         </header>
@@ -110,7 +115,7 @@
             
             <div id="gameOver" class="absolute inset-0 bg-dark/80 backdrop-blur-sm flex flex-col items-center justify-center hidden z-20">
                 <h2 class="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">生日快乐!</h2>
-                <p class="text-xl mb-4">最终甜蜜值: <span id="finalScore" class="font-bold">0</span></p>
+                <p class="text-xl mb-4">最终幸福值: <span id="finalScore" class="font-bold">0</span></p>
                 <p class="text-lg mb-6 text-yellow-300">8月23日，爱你的每一天</p>
                 <button id="restartButton" class="px-8 py-3 bg-gradient-to-r from-primary to-secondary rounded-full text-white font-bold shadow-lg hover:shadow-primary/30 hover:scale-105 transition-all duration-300">
                     <i class="fa fa-refresh mr-2"></i>再来一次
@@ -136,9 +141,16 @@
             const startButton = document.getElementById('startButton');
             const narration = document.getElementById('narration');
             const narrationText = document.getElementById('narrationText');
+            const soundPermission = document.getElementById('soundPermission');
             
             // 语音合成对象
             let speechSynthesis = window.speechSynthesis;
+            let speechSupported = 'speechSynthesis' in window;
+            
+            // 检查语音合成支持
+            if (!speechSupported) {
+                showNarration("您的浏览器不支持语音功能");
+            }
             
             // 甜蜜旁白列表
             const loveMessages = [
@@ -165,12 +177,19 @@
                 const size = Math.min(container.clientWidth, window.innerHeight * 0.7);
                 canvas.width = size;
                 canvas.height = size;
+                
+                // 重新计算网格尺寸，修复食物错位
+                if (isGameStarted && !isGameOver) {
+                    gridSize = Math.floor(canvas.width / 30);
+                    snakeSize = gridSize * 0.8;
+                    foodSize = gridSize * 0.9;
+                }
             }
             
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
             
-            // 游戏变量
+            // 游戏变量 - 调整初始速度为更慢
             let snake = [];
             let food = {};
             let specialFood = null;
@@ -178,7 +197,7 @@
             let direction = 'right';
             let nextDirection = 'right';
             let score = 0;
-            let gameSpeed = 100;
+            let gameSpeed = 200; // 初始速度减慢
             let gameInterval;
             let isGameOver = false;
             let isGameStarted = false;
@@ -194,7 +213,7 @@
             
             // 初始化游戏
             function initGame() {
-                // 计算网格和元素大小
+                // 计算网格和元素大小 - 确保食物正确定位
                 gridSize = Math.floor(canvas.width / 30);
                 snakeSize = gridSize * 0.8;
                 foodSize = gridSize * 0.9;
@@ -208,7 +227,7 @@
                 direction = 'right';
                 nextDirection = 'right';
                 score = 0;
-                gameSpeed = 100;
+                gameSpeed = 200; // 初始速度减慢
                 isGameOver = false;
                 currentColorIndex = 0;
                 specialFood = null;
@@ -234,15 +253,30 @@
                 isGameStarted = true;
                 initGame();
                 
+                // 检查语音权限
+                if (speechSupported) {
+                    // 尝试触发语音合成以请求权限
+                    const testUtterance = new SpeechSynthesisUtterance(' ');
+                    speechSynthesis.speak(testUtterance);
+                    
+                    // 显示权限提示
+                    setTimeout(() => {
+                        soundPermission.classList.remove('hidden');
+                        setTimeout(() => {
+                            soundPermission.classList.add('hidden');
+                        }, 5000);
+                    }, 1000);
+                }
+                
                 // 初始语音祝福
                 speakMessage("亲爱的，生日快乐！8月23日，祝你永远开心！");
                 showNarration("亲爱的，生日快乐！8月23日，祝你永远开心！");
             }
             
-            // 生成普通食物
+            // 生成普通食物 - 修复定位问题
             function generateFood() {
-                const maxX = canvas.width / gridSize - 1;
-                const maxY = canvas.height / gridSize - 1;
+                const maxX = Math.floor(canvas.width / gridSize) - 1;
+                const maxY = Math.floor(canvas.height / gridSize) - 1;
                 
                 // 确保食物不会出现在蛇身上
                 let overlapping;
@@ -271,8 +305,8 @@
             
             // 生成特殊食物（礼物）
             function generateSpecialFood() {
-                const maxX = canvas.width / gridSize - 1;
-                const maxY = canvas.height / gridSize - 1;
+                const maxX = Math.floor(canvas.width / gridSize) - 1;
+                const maxY = Math.floor(canvas.height / gridSize) - 1;
                 
                 let overlapping;
                 do {
@@ -389,10 +423,14 @@
                 return gradients[colorClass] || { start: '#E91E63', end: '#FFC107' };
             }
             
-            // 绘制普通食物
+            // 绘制普通食物 - 修复定位
             function drawFood() {
+                // 计算实际食物位置，确保在网格中心
+                const actualX = food.x + gridSize / 2;
+                const actualY = food.y + gridSize / 2;
+                
                 ctx.save();
-                ctx.translate(food.x + gridSize / 2, food.y + gridSize / 2);
+                ctx.translate(actualX, actualY);
                 
                 if (food.type === 'heart') {
                     // 绘制爱心
@@ -439,8 +477,11 @@
             function drawSpecialFood() {
                 if (!specialFood) return;
                 
+                const actualX = specialFood.x + gridSize / 2;
+                const actualY = specialFood.y + gridSize / 2;
+                
                 ctx.save();
-                ctx.translate(specialFood.x + gridSize / 2, food.y + gridSize / 2);
+                ctx.translate(actualX, actualY);
                 ctx.rotate(Date.now() / 800); // 旋转动画
                 
                 // 礼物盒
@@ -558,14 +599,45 @@
                 }, 3000);
             }
             
-            // 语音朗读
+            // 语音朗读 - 优化实现
             function speakMessage(text) {
+                if (!speechSupported) {
+                    return; // 不支持语音合成
+                }
+                
+                // 检查是否有可用语音
+                if (speechSynthesis.getVoices().length === 0) {
+                    // 尝试加载语音
+                    speechSynthesis.onvoiceschanged = function() {
+                        if (speechSynthesis.getVoices().length > 0) {
+                            actuallySpeak(text);
+                        }
+                    };
+                    return;
+                }
+                
+                actuallySpeak(text);
+            }
+            
+            // 实际执行语音合成
+            function actuallySpeak(text) {
                 // 停止任何正在进行的语音
                 window.speechSynthesis.cancel();
                 
                 // 创建新的语音实例
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'zh-CN';
+                
+                // 尝试找到中文语音
+                const voices = speechSynthesis.getVoices();
+                const chineseVoice = voices.find(voice => 
+                    voice.lang.includes('zh') || voice.name.includes('Chinese')
+                );
+                
+                if (chineseVoice) {
+                    utterance.voice = chineseVoice;
+                }
+                
                 utterance.rate = 0.9; // 稍慢一点更温馨
                 utterance.pitch = 1.2; // 稍微高一点更亲切
                 utterance.volume = 1;
@@ -637,8 +709,8 @@
                     // 显示分数动画
                     showScorePopup(head.x + gridSize/2, head.y, points);
                     
-                    // 增加速度
-                    gameSpeed = Math.max(70, gameSpeed - 3);
+                    // 增加速度 - 减小加速幅度
+                    gameSpeed = Math.max(100, gameSpeed - 2); // 减速更慢，最低速度更高
                     
                     // 改变颜色
                     currentColorIndex++;
@@ -738,7 +810,7 @@
                 gameOverScreen.classList.remove('hidden');
                 
                 // 游戏结束语音祝福
-                let endMessage = "游戏结束啦！你的甜蜜值是" + score + "分！8月23日生日快乐，爱你哟！";
+                let endMessage = "游戏结束啦！你的幸福值是" + score + "分！8月23日生日快乐，爱你哟！";
                 speakMessage(endMessage);
                 
                 // 创建庆祝粒子
@@ -841,6 +913,13 @@
             // 按钮事件
             restartButton.addEventListener('click', initGame);
             startButton.addEventListener('click', startGame);
+            
+            // 预加载语音
+            if (speechSupported) {
+                window.speechSynthesis.onvoiceschanged = function() {
+                    console.log('语音已加载');
+                };
+            }
         });
     </script>
 </body>
