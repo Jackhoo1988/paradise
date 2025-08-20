@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生日快乐贪吃蛇</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#E91E63',
+                        secondary: '#FFC107',
+                        dark: '#1A1A2E',
+                        light: '#F9FAFB'
+                    },
+                    fontFamily: {
+                        game: ['"Comic Sans MS"', 'cursive', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .grid-bg {
+                background-size: 20px 20px;
+                background-image: 
+                    linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            }
+            .rainbow-1 { background: linear-gradient(90deg, #FF5E5E, #FF7D5E); }
+            .rainbow-2 { background: linear-gradient(90deg, #FF7D5E, #FFB347); }
+            .rainbow-3 { background: linear-gradient(90deg, #FFB347, #FFF275); }
+            .rainbow-4 { background: linear-gradient(90deg, #FFF275, #93FF96); }
+            .rainbow-5 { background: linear-gradient(90deg, #93FF96, #42D7F5); }
+            .rainbow-6 { background: linear-gradient(90deg, #42D7F5, #7D5FFF); }
+            .rainbow-7 { background: linear-gradient(90deg, #7D5FFF, #C774E8); }
+            .rainbow-8 { background: linear-gradient(90deg, #C774E8, #FF5E5E); }
+            .confetti {
+                position: absolute;
+                width: 10px;
+                height: 10px;
+                opacity: 0;
+            }
+            .pulse {
+                animation: pulse 0.6s ease-in-out;
+            }
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.3); }
+                100% { transform: scale(1); }
+            }
+            .float {
+                animation: float 3s ease-in-out infinite;
+            }
+            @keyframes float {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+                100% { transform: translateY(0px); }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-dark to-purple-900 font-game text-light min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
+    <div class="max-w-3xl w-full relative">
+        <!-- 开始游戏界面 -->
+        <div id="startScreen" class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-dark/95 backdrop-blur-md rounded-xl p-6 text-center">
+            <div class="mb-6 float">
+                <i class="fa fa-birthday-cake text-6xl text-secondary animate-pulse"></i>
+            </div>
+            <h1 class="text-[clamp(1.8rem,8vw,3rem)] font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary text-shadow mb-4">
+                生日快乐！
+            </h1>
+            <p class="text-xl mb-8 text-white/80">8月23日专属惊喜</p>
+            <button id="startButton" class="px-10 py-4 bg-gradient-to-r from-primary to-secondary rounded-full text-white font-bold text-lg shadow-lg hover:shadow-primary/50 hover:scale-105 transition-all duration-300">
+                <i class="fa fa-gamepad mr-2"></i>开始游戏
+            </button>
+            <p class="mt-6 text-sm text-white/60">
+                用方向键或滑动控制蛇移动<br>
+                每吃到食物都会有惊喜哦！
+            </p>
+        </div>
+        
+        <header class="mb-4 flex justify-between items-center">
+            <h1 class="text-[clamp(1.5rem,5vw,2.5rem)] font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary text-shadow">
+                爱的贪吃蛇
+            </h1>
+            <div id="score-display" class="bg-dark/70 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/10 shadow-lg">
+                <span class="text-sm font-medium text-white/70">甜蜜值:</span>
+                <span id="score" class="text-xl font-bold ml-2">0</span>
+            </div>
+        </header>
+        
+        <div class="relative bg-dark/80 rounded-xl overflow-hidden shadow-2xl border border-white/10">
+            <canvas id="gameCanvas" class="w-full grid-bg"></canvas>
+            
+            <!-- 旁白显示区域 -->
+            <div id="narration" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-dark/80 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 shadow-lg text-center hidden">
+                <p id="narrationText" class="text-white font-medium"></p>
+            </div>
+            
+            <div id="gameOver" class="absolute inset-0 bg-dark/80 backdrop-blur-sm flex flex-col items-center justify-center hidden z-20">
+                <h2 class="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">生日快乐!</h2>
+                <p class="text-xl mb-4">最终甜蜜值: <span id="finalScore" class="font-bold">0</span></p>
+                <p class="text-lg mb-6 text-yellow-300">8月23日，爱你的每一天</p>
+                <button id="restartButton" class="px-8 py-3 bg-gradient-to-r from-primary to-secondary rounded-full text-white font-bold shadow-lg hover:shadow-primary/30 hover:scale-105 transition-all duration-300">
+                    <i class="fa fa-refresh mr-2"></i>再来一次
+                </button>
+            </div>
+        </div>
+        
+        <div class="mt-6 text-center text-white/60 text-sm">
+            <p>手机上滑动，电脑上用方向键 <i class="fa fa-arrow-up"></i> <i class="fa fa-arrow-down"></i> <i class="fa fa-arrow-left"></i> <i class="fa fa-arrow-right"></i></p>
+            <p class="mt-1">每吃一个食物，都会有爱的惊喜</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const scoreDisplay = document.getElementById('score');
+            const gameOverScreen = document.getElementById('gameOver');
+            const finalScoreDisplay = document.getElementById('finalScore');
+            const restartButton = document.getElementById('restartButton');
+            const startScreen = document.getElementById('startScreen');
+            const startButton = document.getElementById('startButton');
+            const narration = document.getElementById('narration');
+            const narrationText = document.getElementById('narrationText');
+            
+            // 语音合成对象
+            let speechSynthesis = window.speechSynthesis;
+            
+            // 甜蜜旁白列表
+            const loveMessages = [
+                "亲爱的，你真厉害！",
+                "爱你哟！",
+                "8月23日，专属你的日子！",
+                "真好吃，就像蛋糕一样甜！",
+                "和你在一起的每一天都很甜蜜",
+                "生日快乐，我的宝贝！",
+                "你真聪明！",
+                "我们要一直这样幸福下去",
+                "再吃一个，给你更多爱",
+                "你是我的全世界",
+                "8月23日，爱你更多一点",
+                "真开心，和你一起玩游戏",
+                "Sunny Ye, amazing！",
+                "余生请多指教",
+                "大小姐，你太棒啦"
+            ];
+            
+            // 设置Canvas尺寸
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                const size = Math.min(container.clientWidth, window.innerHeight * 0.7);
+                canvas.width = size;
+                canvas.height = size;
+            }
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 游戏变量
+            let snake = [];
+            let food = {};
+            let specialFood = null;
+            let specialFoodTimer = 0;
+            let direction = 'right';
+            let nextDirection = 'right';
+            let score = 0;
+            let gameSpeed = 100;
+            let gameInterval;
+            let isGameOver = false;
+            let isGameStarted = false;
+            let gridSize;
+            let snakeSize;
+            let foodSize;
+            let rainbowColors = [
+                'rainbow-1', 'rainbow-2', 'rainbow-3', 'rainbow-4',
+                'rainbow-5', 'rainbow-6', 'rainbow-7', 'rainbow-8'
+            ];
+            let currentColorIndex = 0;
+            let particles = [];
+            
+            // 初始化游戏
+            function initGame() {
+                // 计算网格和元素大小
+                gridSize = Math.floor(canvas.width / 30);
+                snakeSize = gridSize * 0.8;
+                foodSize = gridSize * 0.9;
+                
+                // 重置游戏状态
+                snake = [
+                    {x: 5 * gridSize, y: 5 * gridSize},
+                    {x: 4 * gridSize, y: 5 * gridSize},
+                    {x: 3 * gridSize, y: 5 * gridSize}
+                ];
+                direction = 'right';
+                nextDirection = 'right';
+                score = 0;
+                gameSpeed = 100;
+                isGameOver = false;
+                currentColorIndex = 0;
+                specialFood = null;
+                specialFoodTimer = 0;
+                particles = [];
+                
+                // 更新UI
+                scoreDisplay.textContent = score;
+                gameOverScreen.classList.add('hidden');
+                narration.classList.add('hidden');
+                
+                // 生成第一个食物
+                generateFood();
+                
+                // 开始游戏循环
+                if (gameInterval) clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, gameSpeed);
+            }
+            
+            // 开始游戏
+            function startGame() {
+                startScreen.classList.add('hidden');
+                isGameStarted = true;
+                initGame();
+                
+                // 初始语音祝福
+                speakMessage("亲爱的，生日快乐！8月23日，祝你永远开心！");
+                showNarration("亲爱的，生日快乐！8月23日，祝你永远开心！");
+            }
+            
+            // 生成普通食物
+            function generateFood() {
+                const maxX = canvas.width / gridSize - 1;
+                const maxY = canvas.height / gridSize - 1;
+                
+                // 确保食物不会出现在蛇身上
+                let overlapping;
+                do {
+                    overlapping = false;
+                    food = {
+                        x: Math.floor(Math.random() * maxX) * gridSize,
+                        y: Math.floor(Math.random() * maxY) * gridSize,
+                        type: Math.random() > 0.7 ? 'cake' : 'heart' // 70% 心形，30% 蛋糕
+                    };
+                    
+                    // 检查是否与蛇重叠
+                    for (let segment of snake) {
+                        if (segment.x === food.x && segment.y === food.y) {
+                            overlapping = true;
+                            break;
+                        }
+                    }
+                    
+                    // 检查是否与特殊食物重叠
+                    if (specialFood && food.x === specialFood.x && food.y === specialFood.y) {
+                        overlapping = true;
+                    }
+                } while (overlapping);
+            }
+            
+            // 生成特殊食物（礼物）
+            function generateSpecialFood() {
+                const maxX = canvas.width / gridSize - 1;
+                const maxY = canvas.height / gridSize - 1;
+                
+                let overlapping;
+                do {
+                    overlapping = false;
+                    specialFood = {
+                        x: Math.floor(Math.random() * maxX) * gridSize,
+                        y: Math.floor(Math.random() * maxY) * gridSize,
+                        timer: 0
+                    };
+                    
+                    // 检查是否与蛇重叠
+                    for (let segment of snake) {
+                        if (segment.x === specialFood.x && segment.y === specialFood.y) {
+                            overlapping = true;
+                            break;
+                        }
+                    }
+                    
+                    // 检查是否与普通食物重叠
+                    if (food.x === specialFood.x && food.y === specialFood.y) {
+                        overlapping = true;
+                    }
+                } while (overlapping);
+            }
+            
+            // 绘制蛇
+            function drawSnake() {
+                snake.forEach((segment, index) => {
+                    // 计算渐变色
+                    const colorClass = rainbowColors[currentColorIndex % rainbowColors.length];
+                    const colors = getGradientColors(colorClass);
+                    
+                    // 创建渐变色
+                    const gradient = ctx.createLinearGradient(
+                        segment.x, segment.y, 
+                        segment.x + snakeSize, segment.y + snakeSize
+                    );
+                    gradient.addColorStop(0, colors.start);
+                    gradient.addColorStop(1, colors.end);
+                    
+                    // 绘制蛇身体
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.roundRect(
+                        segment.x + (gridSize - snakeSize) / 2,
+                        segment.y + (gridSize - snakeSize) / 2,
+                        snakeSize, snakeSize, snakeSize / 4
+                    );
+                    ctx.fill();
+                    
+                    // 绘制眼睛（只在头部）
+                    if (index === 0) {
+                        ctx.fillStyle = '#fff';
+                        
+                        // 根据方向调整眼睛位置
+                        let leftEyeX, leftEyeY, rightEyeX, rightEyeY;
+                        const eyeSize = snakeSize / 8;
+                        
+                        switch(direction) {
+                            case 'right':
+                                leftEyeX = segment.x + snakeSize * 0.7;
+                                leftEyeY = segment.y + snakeSize * 0.3;
+                                rightEyeX = segment.x + snakeSize * 0.7;
+                                rightEyeY = segment.y + snakeSize * 0.7;
+                                break;
+                            case 'left':
+                                leftEyeX = segment.x + snakeSize * 0.3;
+                                leftEyeY = segment.y + snakeSize * 0.3;
+                                rightEyeX = segment.x + snakeSize * 0.3;
+                                rightEyeY = segment.y + snakeSize * 0.7;
+                                break;
+                            case 'up':
+                                leftEyeX = segment.x + snakeSize * 0.3;
+                                leftEyeY = segment.y + snakeSize * 0.3;
+                                rightEyeX = segment.x + snakeSize * 0.7;
+                                rightEyeY = segment.y + snakeSize * 0.3;
+                                break;
+                            case 'down':
+                                leftEyeX = segment.x + snakeSize * 0.3;
+                                leftEyeY = segment.y + snakeSize * 0.7;
+                                rightEyeX = segment.x + snakeSize * 0.7;
+                                rightEyeY = segment.y + snakeSize * 0.7;
+                                break;
+                        }
+                        
+                        ctx.beginPath();
+                        ctx.arc(leftEyeX, leftEyeY, eyeSize, 0, Math.PI * 2);
+                        ctx.arc(rightEyeX, rightEyeY, eyeSize, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 绘制瞳孔
+                        ctx.fillStyle = '#000';
+                        ctx.beginPath();
+                        ctx.arc(leftEyeX, leftEyeY, eyeSize / 2, 0, Math.PI * 2);
+                        ctx.arc(rightEyeX, rightEyeY, eyeSize / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+            }
+            
+            // 从颜色类获取渐变颜色
+            function getGradientColors(colorClass) {
+                const gradients = {
+                    'rainbow-1': { start: '#FF5E5E', end: '#FF7D5E' },
+                    'rainbow-2': { start: '#FF7D5E', end: '#FFB347' },
+                    'rainbow-3': { start: '#FFB347', end: '#FFF275' },
+                    'rainbow-4': { start: '#FFF275', end: '#93FF96' },
+                    'rainbow-5': { start: '#93FF96', end: '#42D7F5' },
+                    'rainbow-6': { start: '#42D7F5', end: '#7D5FFF' },
+                    'rainbow-7': { start: '#7D5FFF', end: '#C774E8' },
+                    'rainbow-8': { start: '#C774E8', end: '#FF5E5E' }
+                };
+                
+                return gradients[colorClass] || { start: '#E91E63', end: '#FFC107' };
+            }
+            
+            // 绘制普通食物
+            function drawFood() {
+                ctx.save();
+                ctx.translate(food.x + gridSize / 2, food.y + gridSize / 2);
+                
+                if (food.type === 'heart') {
+                    // 绘制爱心
+                    ctx.scale(foodSize / 40, foodSize / 40);
+                    ctx.fillStyle = '#E91E63';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -20);
+                    ctx.bezierCurveTo(-30, -40, -60, 0, 0, 30);
+                    ctx.bezierCurveTo(60, 0, 30, -40, 0, -20);
+                    ctx.fill();
+                    
+                    // 爱心闪光效果
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.beginPath();
+                    ctx.moveTo(-5, -15);
+                    ctx.bezierCurveTo(-15, -30, -25, -5, -5, 10);
+                    ctx.bezierCurveTo(5, -5, -5, -30, -5, -15);
+                    ctx.fill();
+                } else {
+                    // 绘制蛋糕
+                    // 蛋糕底座
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(-foodSize/2, -foodSize/4, foodSize, foodSize/2);
+                    
+                    // 蛋糕顶部
+                    ctx.fillStyle = '#E91E63';
+                    ctx.fillRect(-foodSize/2 - 2, -foodSize/2, foodSize + 4, foodSize/4);
+                    
+                    // 蜡烛
+                    ctx.fillStyle = '#FFC107';
+                    ctx.fillRect(-2, -foodSize/2 - 8, 4, 8);
+                    
+                    // 火焰
+                    ctx.fillStyle = '#FF5722';
+                    ctx.beginPath();
+                    ctx.arc(0, -foodSize/2 - 12, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+            
+            // 绘制特殊食物（礼物）
+            function drawSpecialFood() {
+                if (!specialFood) return;
+                
+                ctx.save();
+                ctx.translate(specialFood.x + gridSize / 2, food.y + gridSize / 2);
+                ctx.rotate(Date.now() / 800); // 旋转动画
+                
+                // 礼物盒
+                ctx.fillStyle = '#4CAF50';
+                ctx.fillRect(-foodSize/2, -foodSize/2, foodSize, foodSize);
+                
+                // 礼物丝带
+                ctx.fillStyle = '#FFC107';
+                ctx.fillRect(-foodSize/6, -foodSize/2, foodSize/3, foodSize);
+                ctx.fillRect(-foodSize/2, -foodSize/6, foodSize, foodSize/3);
+                
+                // 闪烁效果
+                const flash = Math.sin(Date.now() / 200) * 0.5 + 0.5;
+                ctx.fillStyle = `rgba(255, 255, 255, ${flash * 0.5})`;
+                ctx.fillRect(-foodSize/4, -foodSize/4, foodSize/2, foodSize/2);
+                
+                ctx.restore();
+            }
+            
+            // 创建吃到食物的粒子效果
+            function createParticles(x, y, count = 20) {
+                for (let i = 0; i < count; i++) {
+                    const color = getRandomColor();
+                    particles.push({
+                        x: x,
+                        y: y,
+                        size: Math.random() * 6 + 2,
+                        speedX: (Math.random() - 0.5) * 6,
+                        speedY: (Math.random() - 0.5) * 6,
+                        color: color,
+                        life: 1,
+                        lifeSpeed: Math.random() * 0.03 + 0.01
+                    });
+                }
+            }
+            
+            // 绘制并更新粒子
+            function updateParticles() {
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    
+                    // 更新位置
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    
+                    // 减少生命值
+                    p.life -= p.lifeSpeed;
+                    
+                    // 绘制粒子
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 移除死亡粒子
+                    if (p.life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+                ctx.globalAlpha = 1;
+            }
+            
+            // 获取随机颜色
+            function getRandomColor() {
+                const colors = ['#FF5E5E', '#FFB347', '#93FF96', '#42D7F5', '#7D5FFF', '#FFC107', '#E91E63'];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+            
+            // 显示分数增加动画
+            function showScorePopup(x, y, points) {
+                const popup = document.createElement('div');
+                popup.className = 'absolute text-yellow-300 font-bold text-lg opacity-0 pulse';
+                popup.style.left = `${x}px`;
+                popup.style.top = `${y}px`;
+                popup.textContent = `+${points}`;
+                popup.style.zIndex = '10';
+                document.body.appendChild(popup);
+                
+                // 动画效果
+                let opacity = 0;
+                let posY = y;
+                const interval = setInterval(() => {
+                    opacity += 0.1;
+                    posY -= 2;
+                    popup.style.opacity = opacity;
+                    popup.style.top = `${posY}px`;
+                    
+                    if (opacity >= 1) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            const fadeInterval = setInterval(() => {
+                                opacity -= 0.1;
+                                popup.style.opacity = opacity;
+                                if (opacity <= 0) {
+                                    clearInterval(fadeInterval);
+                                    document.body.removeChild(popup);
+                                }
+                            }, 50);
+                        }, 500);
+                    }
+                }, 30);
+            }
+            
+            // 显示旁白
+            function showNarration(text) {
+                narrationText.textContent = text;
+                narration.classList.remove('hidden');
+                narration.classList.add('pulse');
+                
+                // 3秒后隐藏
+                setTimeout(() => {
+                    narration.classList.add('hidden');
+                    narration.classList.remove('pulse');
+                }, 3000);
+            }
+            
+            // 语音朗读
+            function speakMessage(text) {
+                // 停止任何正在进行的语音
+                window.speechSynthesis.cancel();
+                
+                // 创建新的语音实例
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9; // 稍慢一点更温馨
+                utterance.pitch = 1.2; // 稍微高一点更亲切
+                utterance.volume = 1;
+                
+                // 播放语音
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            // 检查碰撞
+            function checkCollision() {
+                const head = {...snake[0]};
+                
+                // 检查是否碰到边界
+                if (
+                    head.x < 0 || 
+                    head.x >= canvas.width || 
+                    head.y < 0 || 
+                    head.y >= canvas.height
+                ) {
+                    return true;
+                }
+                
+                // 检查是否碰到自己
+                for (let i = 1; i < snake.length; i++) {
+                    if (head.x === snake[i].x && head.y === snake[i].y) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+            
+            // 游戏主循环
+            function gameLoop() {
+                // 清空画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 更新方向
+                direction = nextDirection;
+                
+                // 移动蛇
+                const head = {x: snake[0].x, y: snake[0].y};
+                
+                switch(direction) {
+                    case 'up':
+                        head.y -= gridSize;
+                        break;
+                    case 'down':
+                        head.y += gridSize;
+                        break;
+                    case 'left':
+                        head.x -= gridSize;
+                        break;
+                    case 'right':
+                        head.x += gridSize;
+                        break;
+                }
+                
+                // 将新头部添加到蛇身
+                snake.unshift(head);
+                
+                // 检查是否吃到普通食物
+                if (head.x === food.x && head.y === food.y) {
+                    // 增加分数
+                    const points = 10;
+                    score += points;
+                    scoreDisplay.textContent = score;
+                    
+                    // 显示分数动画
+                    showScorePopup(head.x + gridSize/2, head.y, points);
+                    
+                    // 增加速度
+                    gameSpeed = Math.max(70, gameSpeed - 3);
+                    
+                    // 改变颜色
+                    currentColorIndex++;
+                    
+                    // 生成新食物
+                    generateFood();
+                    
+                    // 创建粒子效果
+                    createParticles(head.x + gridSize/2, head.y + gridSize/2);
+                    
+                    // 随机甜蜜旁白
+                    const message = loveMessages[Math.floor(Math.random() * loveMessages.length)];
+                    showNarration(message);
+                    speakMessage(message);
+                    
+                    // 重新设置游戏间隔
+                    clearInterval(gameInterval);
+                    gameInterval = setInterval(gameLoop, gameSpeed);
+                    
+                    // 每吃5个食物有几率出现特殊食物
+                    if (score % 50 === 0 && !specialFood) {
+                        generateSpecialFood();
+                    }
+                } 
+                // 检查是否吃到特殊食物
+                else if (specialFood && head.x === specialFood.x && head.y === specialFood.y) {
+                    // 特殊食物分数更高
+                    const points = 50;
+                    score += points;
+                    scoreDisplay.textContent = score;
+                    
+                    // 显示分数动画
+                    showScorePopup(head.x + gridSize/2, head.y, points);
+                    
+                    // 创建更多粒子效果
+                    createParticles(head.x + gridSize/2, head.y + gridSize/2, 50);
+                    
+                    // 特殊惊喜消息
+                    const specialMessages = [
+                        "哇，找到特殊礼物啦！",
+                        "超大惊喜！爱你一万年！",
+                        "8月23日，特别的爱给特别的你！",
+                        "这是专属于你的惊喜！"
+                    ];
+                    const message = specialMessages[Math.floor(Math.random() * specialMessages.length)];
+                    showNarration(message);
+                    speakMessage(message);
+                    
+                    // 移除特殊食物
+                    specialFood = null;
+                    
+                    // 生成新的普通食物
+                    generateFood();
+                }
+                else {
+                    // 如果没吃到食物，移除尾部
+                    snake.pop();
+                }
+                
+                // 更新特殊食物计时器
+                if (specialFood) {
+                    specialFoodTimer++;
+                    specialFood.timer++;
+                    
+                    // 特殊食物10秒后消失
+                    if (specialFood.timer > 100) {
+                        specialFood = null;
+                        specialFoodTimer = 0;
+                    }
+                } else {
+                    // 每15秒尝试生成特殊食物
+                    specialFoodTimer++;
+                    if (specialFoodTimer > 150) {
+                        generateSpecialFood();
+                        specialFoodTimer = 0;
+                    }
+                }
+                
+                // 检查碰撞
+                if (checkCollision()) {
+                    gameOver();
+                    return;
+                }
+                
+                // 绘制蛇、食物和粒子
+                drawSnake();
+                drawFood();
+                if (specialFood) drawSpecialFood();
+                updateParticles();
+            }
+            
+            // 游戏结束
+            function gameOver() {
+                isGameOver = true;
+                clearInterval(gameInterval);
+                finalScoreDisplay.textContent = score;
+                gameOverScreen.classList.remove('hidden');
+                
+                // 游戏结束语音祝福
+                let endMessage = "游戏结束啦！你的甜蜜值是" + score + "分！8月23日生日快乐，爱你哟！";
+                speakMessage(endMessage);
+                
+                // 创建庆祝粒子
+                for (let i = 0; i < 100; i++) {
+                    createParticles(
+                        canvas.width / 2, 
+                        canvas.height / 2, 
+                        100
+                    );
+                }
+            }
+            
+            // 键盘控制
+            document.addEventListener('keydown', (e) => {
+                if (!isGameStarted) return;
+                
+                if (isGameOver && e.key === ' ') {
+                    initGame();
+                    return;
+                }
+                
+                // 防止游戏过程中滚动页面
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                    e.preventDefault();
+                }
+                
+                // 控制方向
+                switch(e.key) {
+                    case 'ArrowUp':
+                        if (direction !== 'down') {
+                            nextDirection = 'up';
+                        }
+                        break;
+                    case 'ArrowDown':
+                        if (direction !== 'up') {
+                            nextDirection = 'down';
+                        }
+                        break;
+                    case 'ArrowLeft':
+                        if (direction !== 'right') {
+                            nextDirection = 'left';
+                        }
+                        break;
+                    case 'ArrowRight':
+                        if (direction !== 'left') {
+                            nextDirection = 'right';
+                        }
+                        break;
+                }
+            });
+            
+            // 触摸控制（移动端）
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            canvas.addEventListener('touchstart', (e) => {
+                if (!isGameStarted) return;
+                
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                e.preventDefault();
+            }, { passive: false });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                if (!isGameStarted) return;
+                e.preventDefault();
+            }, { passive: false });
+            
+            canvas.addEventListener('touchend', (e) => {
+                if (!isGameStarted || !touchStartX || !touchStartY) return;
+                
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                
+                const diffX = touchEndX - touchStartX;
+                const diffY = touchEndY - touchStartY;
+                
+                // 判断滑动方向
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    // 水平滑动
+                    if (diffX > 0 && direction !== 'left') {
+                        nextDirection = 'right';
+                    } else if (diffX < 0 && direction !== 'right') {
+                        nextDirection = 'left';
+                    }
+                } else {
+                    // 垂直滑动
+                    if (diffY > 0 && direction !== 'up') {
+                        nextDirection = 'down';
+                    } else if (diffY < 0 && direction !== 'down') {
+                        nextDirection = 'up';
+                    }
+                }
+                
+                touchStartX = 0;
+                touchStartY = 0;
+                e.preventDefault();
+            }, { passive: false });
+            
+            // 按钮事件
+            restartButton.addEventListener('click', initGame);
+            startButton.addEventListener('click', startGame);
+        });
+    </script>
+</body>
+</html>
